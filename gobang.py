@@ -9,6 +9,7 @@
 # 导入相关模块
 import numpy as np
 import pygame
+import time
 from gobang_ai import *
 
 
@@ -98,7 +99,7 @@ class Gobang(object):
         self.LINE_COLOR = pygame.Color('black')
         self.PLAYER_COLOR = pygame.Color('white')
         self.AI_COLOR = pygame.Color('black')
-        self.MAX_DEPTH = 4
+        self.MAX_DEPTH = 2
 
 
         # 确定棋盘四条边的位置
@@ -127,17 +128,18 @@ class Gobang(object):
         while not game_over:
             if turn == -1:
                 # AI执棋
+                cur_time = time.time()
                 if np.sum(self.board!=0) == 0:
                     # 棋盘为空时
                     row, col = self.board_size // 2, self.board_size // 2
-                    utility = None
                 else:
-                    row, col, utility = alpha_beta(self.board, turn, -np.inf, np.inf, self.MAX_DEPTH)
+                    row, col, _ = alpha_beta(self.board, turn, -np.inf, np.inf, self.MAX_DEPTH)
                 self.board[row, col] = turn
                 turn = -turn
                 # 输出记录
                 score = evaluate(self.board, turn)
-                print('AI turn: {}, score: {}, utility: {}'.format((row, col), score, utility))
+                print('AI turn: {}, score: {}, time cost: {}'.format((row, col), \
+                    score, time.time()-cur_time))
             else:
                 # 处理事件
                 for event in pygame.event.get():

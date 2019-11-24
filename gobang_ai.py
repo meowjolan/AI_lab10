@@ -12,13 +12,21 @@ import numpy as np
 # 常量定义
 # 评分棋型设计
 score_dict = [
-    (np.array([1, 1, 1, 1, 1]) / 5, 1e6),
-    (np.array([1000, 1, 1, 1, 1, 10000]) / 4, 10000),
+    # 五子
+    (np.array([1, 1, 1, 1, 1]) / 5, 1e7),
+    # 四子
+    (np.array([1000, 1, 1, 1, 1, 10000]) / 4, 1e5),
     (np.array([1000, 1, 1, 1, 1, -1]) / 5, 5000),
     (np.array([-1, 1, 1, 1, 1, 1000]) / 5, 5000),
+    (np.array([1, 1000, 1, 1, 1, 10000]) / 4, 5000),
+    (np.array([10000, 1, 1, 1, 1000, 1]) / 4, 5000),
+    (np.array([1, 1000, 1, 1, 1, -1]) / 5, 5000),
+    (np.array([1, -1, 1, 1, 1000, 1]) / 5, 5000),
+    # 三子
     (np.array([1000, 1, 1, 1, 10000]) / 3, 1000),
     (np.array([-1, 1, 1, 1, 10000]) / 4, 500),
     (np.array([10000, 1, 1, 1, -1]) / 4, 500),
+    # 二子
     (np.array([1000, 1, 1, 10000]) / 2, 100),
 ]
 
@@ -40,7 +48,7 @@ def alpha_beta(board, turn, alpha, beta, depth):
         return None, None, evaluate(board, turn)
 
     # 获取可行步列表
-    childList = getNextSteps(board)
+    childList = getNextSteps(board, turn)
 
     best_row, best_col = 0, 0
 
@@ -76,61 +84,45 @@ def alpha_beta(board, turn, alpha, beta, depth):
         return best_row, best_col, beta
 
 
-def getNextSteps(board):
+def getNextSteps(board, turn):
     '''
         获取可行的下一步列表
         参数：
             board: numpy.array棋盘，0为空格，-1为AI棋子，+1为玩家棋子
+            turn: 极大(1) 或 极小(-1)
         返回值：
             next_steps: 下一步列表
     '''
-    # 确定棋子分布范围
-    left = 0
-    right = board.shape[1]-1
-    sum_0 = np.sum(board!=0, axis=0)
-    while sum_0[left] == 0:
-        left += 1
-    while sum_0[right] == 0:
-        right -= 1
-    
-    top = 0
-    bottom = board.shape[0]-1
-    sum_1 = np.sum(board!=0, axis=1)
-    while sum_1[top] == 0:
-        top += 1
-    while sum_1[bottom] == 0:
-        bottom -= 1
-
-    # 扩充一格的范围
-    top = max(top-1, 0)
-    bottom = min(bottom+1, board.shape[0]-1)
-    left = max(left-1, 0)
-    right = min(right+1, board.shape[1]-1)
-
-    # 统计四邻域的棋子数
-    board_count = np.zeros_like(board)
+    # 经过排序后，末尾的空位价值一般不高，可以忽略
+    LIMITED_AMOUNT = 15
+    # 只选择四邻域内有棋子的空位
     next_steps = []
-
-    for i in range(top, bottom+1):
-        for j in range(left, right+1):
-            if board[i, j] == 0:
+    for i in range(board.shape[0]):
+        for j in range(board.shape[1]):
+            if board[i, j] == 0 and \
+                np.sum(board[max(0, i-1):min(board.shape[0], i+2), \
+                    max(0, j-1):min(board.shape[1], j+2)]!=0) > 0:
                 next_steps.append((i, j))
-            else:
-                board_count[max(0, i-1):min(board.shape[0]-1, i+2), \
-                        max(0, j-1):min(board.shape[1], j+2)] += 1
-    
-    # 忽略四领域没有棋子的格子
-    record = []
-    for i in range(len(next_steps)):
-        row, col = next_steps[i]
-        if board_count[row, col] == 0:
-            record.append(i)
-    next_steps = [next_steps[i] for i in range(len(next_steps)) if i not in record]
 
-    # 根据四领域的棋子数进行排序
-    next_steps.sort(key=lambda x: board_count[x[0], x[1]], reverse=True)
+    # 根据评分进行排序
+    next_steps.sort(key=lambda x: getPointScore(turn*board, x[0], x[1]), reverse=True)
 
-    return next_steps
+    return next_steps[:LIMITED_AMOUNT]
+
+
+def getPointScore(board, row, col):
+    '''
+        计算下一步的分数
+        参数：
+            board: numpy.array棋盘，0为空格，-1为对方棋子，+1为本方棋子
+            row, col: 下一步
+        返回值：
+            score: 下一步之后的分数
+    '''
+    board[row, col] = 1
+    score = evaluate(board, 1)
+    return score
+
 
 def evaluate(board, turn):
     '''
@@ -145,20 +137,30 @@ def evaluate(board, turn):
     max_score = 0
     min_score = 0
 
+    # max
+    temp_board = np.pad(board, ((1,1),(1,1)), 'constant', constant_values=(-1,-1))
     # 翻转
-    board_fp = np.fliplr(board)
+    board_fp = np.fliplr(temp_board)
     # 各个方向的向量
-    board_vec = [i for i in board] + [i for i in board.T] \
-        + [board.diagonal(i) for i in range(-board.shape[0]+1, board.shape[1])] \
-        + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+1, board_fp.shape[1])]
+    board_max_vec = [i for i in temp_board] + [i for i in temp_board.T] \
+        + [temp_board.diagonal(i) for i in range(-temp_board.shape[0]+5, temp_board.shape[1]-4)] \
+        + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
+
+    # min
+    temp_board = -board
+    temp_board = np.pad(temp_board, ((1,1),(1,1)), 'constant', constant_values=(-1,-1))
+    # 翻转
+    board_fp = np.fliplr(temp_board)
+    # 各个方向的向量
+    board_min_vec = [i for i in temp_board] + [i for i in temp_board.T] \
+        + [temp_board.diagonal(i) for i in range(-temp_board.shape[0]+5, temp_board.shape[1]-4)] \
+        + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
 
     # 遍历各种棋型
     for model, model_score in score_dict:
-        # 统计频数
-        pos, neg = conv2d(board_vec, model)
-        # 更新分数
-        max_score += pos * model_score
-        min_score += neg * model_score
+        # 统计频数并更新分数
+        max_score += conv2d(board_max_vec, model) * model_score
+        min_score += conv2d(board_min_vec, model) * model_score
 
     # 执棋方有额外加分
     if turn == 1:
@@ -179,17 +181,13 @@ def conv2d(a, b):
             a: 一维数组的列表
             b: 一维数组
         返回值：
-            pos, neg: 两个计算结果
+            count: 两个计算结果
     '''
-    pos = 0
-    neg = 0
+    count = 0
     for aa in a:
         if len(aa) >= len(b):
-            result = np.convolve([-1]+aa.tolist()+[-1], b, mode='valid')
-            pos += np.sum(result==1)
-            result = np.convolve([1]+aa.tolist()+[1], b, mode='valid')
-            neg += np.sum(result==-1)
-    return pos, neg
+            count += np.sum(np.convolve(aa, b, mode='valid')==1)
+    return count
 
 
 def if_game_over(board, turn):
@@ -209,14 +207,14 @@ def if_game_over(board, turn):
     board_fp = np.fliplr(board)
     # 各个方向的向量
     board_vec = [i for i in board] + [i for i in board.T] \
-        + [board.diagonal(i) for i in range(-board.shape[0]+1, board.shape[1])] \
-        + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+1, board_fp.shape[1])]
+        + [board.diagonal(i) for i in range(-board.shape[0]+5, board.shape[1]-4)] \
+        + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
 
     model = np.array([1, 1, 1, 1, 1]) * turn / 5
 
     # 遍历每个向量
     for vec in board_vec:
-        if len(vec) >= len(model) and np.sum(np.convolve(vec, model, mode='valid')==1) > 0:
+        if np.sum(np.convolve(vec, model, mode='valid')==1) > 0:
             return True
 
     return False
