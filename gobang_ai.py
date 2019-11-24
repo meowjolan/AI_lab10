@@ -13,21 +13,21 @@ import numpy as np
 # 评分棋型设计
 score_dict = [
     # 五子
-    (np.array([1, 1, 1, 1, 1]), 1e7),
+    (np.array([1, 1, 1, 1, 1]) / 5, 1e7),
     # 四子
-    (np.array([0, 1, 1, 1, 1, 0]), 1e5),
-    (np.array([0, 1, 1, 1, 1, -1]), 5000),
-    (np.array([-1, 1, 1, 1, 1, 0]), 5000),
-    (np.array([1, 0, 1, 1, 1, 0]), 5000),
-    (np.array([0, 1, 1, 1, 0, 1]), 5000),
-    (np.array([1, 0, 1, 1, 1, -1]), 5000),
-    (np.array([1, -1, 1, 1, 0, 1]), 5000),
+    (np.array([1000, 1, 1, 1, 1, 10000]) / 4, 1e5),
+    (np.array([1000, 1, 1, 1, 1, -1]) / 5, 5000),
+    (np.array([-1, 1, 1, 1, 1, 1000]) / 5, 5000),
+    (np.array([1, 1000, 1, 1, 1, 10000]) / 4, 5000),
+    (np.array([10000, 1, 1, 1, 1000, 1]) / 4, 5000),
+    (np.array([1, 1000, 1, 1, 1, -1]) / 5, 5000),
+    (np.array([1, -1, 1, 1, 1000, 1]) / 5, 5000),
     # 三子
-    (np.array([0, 1, 1, 1, 0]), 1000),
-    (np.array([-1, 1, 1, 1, 0]), 500),
-    (np.array([0, 1, 1, 1, -1]), 500),
+    (np.array([1000, 1, 1, 1, 10000]) / 3, 1000),
+    (np.array([-1, 1, 1, 1, 10000]) / 4, 500),
+    (np.array([10000, 1, 1, 1, -1]) / 4, 500),
     # 二子
-    (np.array([0, 1, 1, 0]), 100),
+    (np.array([1000, 1, 1, 10000]) / 2, 100),
 ]
 
 
@@ -94,7 +94,7 @@ def getNextSteps(board, turn):
             next_steps: 下一步列表
     '''
     # 经过排序后，末尾的空位价值一般不高，可以忽略
-    LIMITED_AMOUNT = 15
+    LIMITED_AMOUNT = 8
     # 只选择四邻域内有棋子的空位
     next_steps = []
     for i in range(board.shape[0]):
@@ -159,8 +159,8 @@ def evaluate(board, turn):
     # 遍历各种棋型
     for model, model_score in score_dict:
         # 统计频数并更新分数
-        max_score += count(board_max_vec, model) * model_score
-        min_score += count(board_min_vec, model) * model_score
+        max_score += conv2d(board_max_vec, model) * model_score
+        min_score += conv2d(board_min_vec, model) * model_score
 
     # 执棋方有额外加分
     if turn == 1:
@@ -174,20 +174,20 @@ def evaluate(board, turn):
     return score
 
 
-def count(a, b):
+def conv2d(a, b):
     '''
-        统计棋型
+        特殊设计的二维卷积
         参数：  
             a: 一维数组的列表
             b: 一维数组
         返回值：
-            result: 统计结果
+            count: 两个计算结果
     '''
-    result = 0
+    count = 0
     for aa in a:
         if len(aa) >= len(b):
-            result += sum([aa[i:len(b)+i+1]==b for i in range(0, len(aa)-len(b))])
-    return result
+            count += np.sum(np.convolve(aa, b, mode='valid')==1)
+    return count
 
 
 def if_game_over(board, turn):

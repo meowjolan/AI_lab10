@@ -97,9 +97,7 @@ class Gobang(object):
         self.CELL_SIZE = self.BOARD_LEN // self.board_size
         self.BACKGROUND_COLOR = pygame.Color('peru')
         self.LINE_COLOR = pygame.Color('black')
-        self.PLAYER_COLOR = pygame.Color('white')
-        self.AI_COLOR = pygame.Color('black')
-        self.MAX_DEPTH = 2
+        self.MAX_DEPTH = 3
 
 
         # 确定棋盘四条边的位置
@@ -118,10 +116,20 @@ class Gobang(object):
         # 背景颜色设置
         self.screen.fill(self.BACKGROUND_COLOR)
 
+        # 读取先手方
         turn = input('First(1) or second(-1)?')
         while turn not in ('1', '-1'):
             turn = input('Error Input! Input Again: ')
         turn = int(turn)
+
+        # 先手执黑
+        if turn == 1:
+            self.PLAYER_COLOR = pygame.Color('black')
+            self.AI_COLOR = pygame.Color('white')
+        else:
+            self.PLAYER_COLOR = pygame.Color('white')
+            self.AI_COLOR = pygame.Color('black')
+
         self.add_init_coins(turn)
         game_over = False
         print("#---------------------- Game Start ----------------------#")
@@ -249,6 +257,8 @@ class Gobang(object):
                     else:
                         count = 1
                         step = 1
+
+        return False
 
 
 
