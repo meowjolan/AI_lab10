@@ -57,14 +57,29 @@ class Gobang(object):
             for j in range(self.board_size):
                 if self.board[i, j] == 1:
                     # 玩家的棋子
-                    position = (self.top+i*self.CELL_SIZE+self.CELL_SIZE//2, \
-                                self.left+j*self.CELL_SIZE+self.CELL_SIZE//2)
+                    position = (self.left+j*self.CELL_SIZE+self.CELL_SIZE//2, \
+                                self.top+i*self.CELL_SIZE+self.CELL_SIZE//2)
                     pygame.draw.circle(self.screen, self.PLAYER_COLOR, position, int(self.CELL_SIZE*0.4))
                 elif self.board[i, j] == -1:
                     # AI的棋子
-                    position = (self.top+i*self.CELL_SIZE+self.CELL_SIZE//2, \
-                                self.left+j*self.CELL_SIZE+self.CELL_SIZE//2)
+                    position = (self.left+j*self.CELL_SIZE+self.CELL_SIZE//2, \
+                                self.top+i*self.CELL_SIZE+self.CELL_SIZE//2)
                     pygame.draw.circle(self.screen, self.AI_COLOR, position, int(self.CELL_SIZE*0.4))
+
+
+    def add_init_coins(self, turn):
+        '''
+            添加开局便存在的棋子
+            参数：
+                turn: 执棋方
+            返回值：
+                None:
+        '''
+        mid = self.board_size // 2
+        self.board[mid, mid] = turn
+        self.board[mid, mid+1] = turn
+        self.board[mid, mid-1] = -turn
+        self.board[mid+1, mid] = -turn
 
 
     def play(self):
@@ -83,6 +98,7 @@ class Gobang(object):
         self.LINE_COLOR = pygame.Color('black')
         self.PLAYER_COLOR = pygame.Color('white')
         self.AI_COLOR = pygame.Color('black')
+        self.MAX_DEPTH = 4
 
 
         # 确定棋盘四条边的位置
@@ -101,17 +117,27 @@ class Gobang(object):
         # 背景颜色设置
         self.screen.fill(self.BACKGROUND_COLOR)
 
+        turn = input('First(1) or second(-1)?')
+        while turn not in ('1', '-1'):
+            turn = input('Error Input! Input Again: ')
+        turn = int(turn)
+        self.add_init_coins(turn)
         game_over = False
-        turn = 1
         print("#---------------------- Game Start ----------------------#")
         while not game_over:
             if turn == -1:
                 # AI执棋
-                row, col, score = alpha_beta(self.board)
+                if np.sum(self.board!=0) == 0:
+                    # 棋盘为空时
+                    row, col = self.board_size // 2, self.board_size // 2
+                    utility = None
+                else:
+                    row, col, utility = alpha_beta(self.board, turn, -np.inf, np.inf, self.MAX_DEPTH)
                 self.board[row, col] = turn
                 turn = -turn
-                # 计算分数
-                print('AI turn: {}, score: {}'.format((row, col), score))
+                # 输出记录
+                score = evaluate(self.board, turn)
+                print('AI turn: {}, score: {}, utility: {}'.format((row, col), score, utility))
             else:
                 # 处理事件
                 for event in pygame.event.get():
@@ -123,16 +149,16 @@ class Gobang(object):
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                         # 鼠标按键
                         # 计算落子位置
-                        row = (event.pos[0] - self.top) // self.CELL_SIZE
-                        col = (event.pos[1] - self.left) // self.CELL_SIZE
+                        row = (event.pos[1] - self.top) // self.CELL_SIZE
+                        col = (event.pos[0] - self.left) // self.CELL_SIZE
                         # 添加棋子
                         if (0<=row<self.board_size) and (0<=col<self.board_size) \
                             and (self.board[row, col]==0):
                             self.board[row, col] = turn
                             # 转换角色
                             turn = -turn
-                            # 计算分数
-                            score = evaluate(self.board)
+                            # 输出记录
+                            score = evaluate(self.board, turn)
                             print('Player turn: {}, score: {}'.format((row, col), score))
 
             # 绘制棋盘
