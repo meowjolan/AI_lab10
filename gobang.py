@@ -153,11 +153,14 @@ class Gobang(object):
                 else:
                     row, col, _ = alpha_beta(self.board, valid_board, turn, -np.inf, np.inf, self.MAX_DEPTH)
                 self.board[row, col] = turn
+
                 # 更新邻居统计
                 for i in range(max(0, row-1), min(self.board_size, row+2)):
                     for j in range(max(0, col-1), min(self.board_size, col+2)):
                         if self.board[i, j] == 0:
                             valid_board[i, j] += 1
+                valid_board[row, col] = 0
+
                 turn = -turn
                 # 输出记录
                 score = evaluate(self.board, turn)
@@ -185,11 +188,13 @@ class Gobang(object):
                             # 输出记录
                             score = evaluate(self.board, turn)
                             print('Player turn: {}, score: {}'.format((row, col), score))
+                            
                             # 更新邻居统计
                             for i in range(max(0, row-1), min(self.board_size, row+2)):
                                 for j in range(max(0, col-1), min(self.board_size, col+2)):
                                     if self.board[i, j] == 0:
                                         valid_board[i, j] += 1
+                            valid_board[row, col] = 0
 
             # 绘制棋盘
             self.draw_board()

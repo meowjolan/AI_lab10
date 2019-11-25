@@ -21,14 +21,26 @@ score_dict = [
     (np.array([-1, 1, 1, 1, 1, 1000]) / 5, 5000),
     (np.array([1, 1000, 1, 1, 1, 10000]) / 4, 5000),
     (np.array([10000, 1, 1, 1, 1000, 1]) / 4, 5000),
-    (np.array([1, 1000, 1, 1, 1, -1]) / 5, 5000),
-    (np.array([1, -1, 1, 1, 1000, 1]) / 5, 5000),
     # 三子
     (np.array([1000, 1, 1, 1, 10000]) / 3, 1000),
     (np.array([-1, 1, 1, 1, 10000]) / 4, 500),
     (np.array([10000, 1, 1, 1, -1]) / 4, 500),
     # 二子
     (np.array([1000, 1, 1, 10000]) / 2, 100),
+]
+
+front_edge_score_dict = [
+    # 四子
+    (np.array([1, 1, 1, 1, 1000]) / 4, 5000),
+    # 三子
+    (np.array([1, 1, 1, 10000]) / 3, 500),
+]
+
+back_edge_score_dict = [
+    # 四子
+    (np.array([1000, 1, 1, 1, 1]) / 4, 5000),
+    # 三子
+    (np.array([10000, 1, 1, 1]) / 3, 500),
 ]
 
 
@@ -59,6 +71,7 @@ def alpha_beta(board, valid_board, turn, alpha, beta, depth):
         for row, col in childList:
             # 递归调用
             board[row, col] = turn
+            valid_board[row, col], temp = 0, valid_board[row, col]
             for i in range(max(0, row-1), min(board.shape[0], row+2)):
                 for j in range(max(0, col-1), min(board.shape[1], col+2)):
                     if board[i, j] == 0:
@@ -69,6 +82,7 @@ def alpha_beta(board, valid_board, turn, alpha, beta, depth):
                     if board[i, j] == 0:
                         valid_board[i, j] -= 1
             board[row, col] = 0
+            valid_board[row, col] = temp
             # 更新alpha
             if alpha < next_beta:
                 alpha = next_beta
@@ -82,6 +96,7 @@ def alpha_beta(board, valid_board, turn, alpha, beta, depth):
         for row, col in childList:
             # 递归调用
             board[row, col] = turn
+            valid_board[row, col], temp = 0, valid_board[row, col]
             for i in range(max(0, row-1), min(board.shape[0], row+2)):
                 for j in range(max(0, col-1), min(board.shape[1], col+2)):
                     if board[i, j] == 0:
@@ -92,6 +107,7 @@ def alpha_beta(board, valid_board, turn, alpha, beta, depth):
                     if board[i, j] == 0:
                         valid_board[i, j] -= 1
             board[row, col] = 0
+            valid_board[row, col] = temp
             # 更新beta
             if beta > next_alpha:
                 beta = next_alpha
@@ -122,23 +138,25 @@ def getNextSteps(board, turn, valid_board):
                 next_steps.append((i, j))
 
     # 根据评分进行排序
-    next_steps.sort(key=lambda x: getPointScore(turn*board, x[0], x[1]), reverse=True)
+    next_steps.sort(key=lambda x: getPointScore(board, x[0], x[1], turn), reverse=True)
 
     return next_steps[:LIMITED_AMOUNT]
 
 
-def getPointScore(board, row, col):
+def getPointScore(board, row, col, turn):
     '''
         计算下一步的分数
         参数：
-            board: numpy.array棋盘，0为空格，-1为对方棋子，+1为本方棋子
+            board: numpy.array棋盘，0为空格，-1为AI棋子，+1为玩家棋子
             row, col: 下一步
+            turn: 极大(1) 或 极小(-1)
         返回值：
             score: 下一步之后的分数
     '''
-    board[row, col] = 1
-    score = evaluate(board, 1)
-    return score
+    board[row, col] = turn
+    score = evaluate(board, turn)
+    board[row, col] = 0
+    return turn * score
 
 
 def evaluate(board, turn):
@@ -154,30 +172,38 @@ def evaluate(board, turn):
     max_score = 0
     min_score = 0
 
-    # max
-    temp_board = np.pad(board, ((1,1),(1,1)), 'constant', constant_values=(-1,-1))
     # 翻转
-    board_fp = np.fliplr(temp_board)
+    board_fp = np.fliplr(board)
     # 各个方向的向量
-    board_max_vec = [i for i in temp_board] + [i for i in temp_board.T] \
-        + [temp_board.diagonal(i) for i in range(-temp_board.shape[0]+5, temp_board.shape[1]-4)] \
-        + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
-
-    # min
-    temp_board = -board
-    temp_board = np.pad(temp_board, ((1,1),(1,1)), 'constant', constant_values=(-1,-1))
-    # 翻转
-    board_fp = np.fliplr(temp_board)
-    # 各个方向的向量
-    board_min_vec = [i for i in temp_board] + [i for i in temp_board.T] \
-        + [temp_board.diagonal(i) for i in range(-temp_board.shape[0]+5, temp_board.shape[1]-4)] \
+    board_vec = [i for i in board] + [i for i in board.T] \
+        + [board.diagonal(i) for i in range(-board.shape[0]+5, board.shape[1]-4)] \
         + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
 
     # 遍历各种棋型
     for model, model_score in score_dict:
         # 统计频数并更新分数
-        max_score += conv2d(board_max_vec, model) * model_score
-        min_score += conv2d(board_min_vec, model) * model_score
+        pos, neg = conv2d(board_vec, model)
+        max_score += pos * model_score
+        min_score += neg * model_score
+
+    # 边缘棋型检测
+    for vec in board_vec:
+        for model, model_score in front_edge_score_dict:
+            if len(vec) >= len(model):
+                result = np.sum(vec[:len(model)] * model)
+                if result == 1:
+                    max_score += model_score
+                elif result == -1:
+                    min_score += model_score
+
+        for model, model_score in back_edge_score_dict:
+            if len(vec) >= len(model):
+                result = np.sum(vec[-len(model):] * model)
+                if result == 1:
+                    max_score += model_score
+                elif result == -1:
+                    min_score += model_score
+
 
     # 执棋方有额外加分
     if turn == 1:
@@ -198,13 +224,16 @@ def conv2d(a, b):
             a: 一维数组的列表
             b: 一维数组
         返回值：
-            count: 两个计算结果
+            pos, neg: 两个计算结果
     '''
-    count = 0
+    pos = 0
+    neg = 0
     for aa in a:
         if len(aa) >= len(b):
-            count += np.sum(np.convolve(aa, b, mode='valid')==1)
-    return count
+            result = np.convolve(aa, b, mode='valid')
+            pos += np.sum(result==1)
+            neg += np.sum(result==-1)
+    return pos, neg
 
 
 def if_game_over(board, turn):
