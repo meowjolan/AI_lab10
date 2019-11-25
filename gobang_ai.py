@@ -23,6 +23,8 @@ score_dict = [
     (np.array([10000, 1, 1, 1, 1000, 1]) / 4, 5000),
     # 三子
     (np.array([1000, 1, 1, 1, 10000]) / 3, 1000),
+    (np.array([1000, 1, 10000, 1, 1, 100000]) / 3, 1000),
+    (np.array([1000, 1, 1, 10000, 1, 100000]) / 3, 1000),
     (np.array([-1, 1, 1, 1, 10000]) / 4, 500),
     (np.array([10000, 1, 1, 1, -1]) / 4, 500),
     # 二子
@@ -44,7 +46,7 @@ back_edge_score_dict = [
 ]
 
 
-def alpha_beta(board, valid_board, turn, alpha, beta, depth):
+def alpha_beta(board, valid_board, turn, alpha, beta, depth, board_vec):
     '''
         alpha-beta剪枝搜索算法
         参数：
@@ -53,26 +55,17 @@ def alpha_beta(board, valid_board, turn, alpha, beta, depth):
             turn: 极大(1) 或 极小(-1)
             alpha, beta: 极大极小值
             depth: 限制深度
+            board_vec: 各个方向的向量
         返回值：
             (best_row, best_col): 已知最好的下一步旗
             _: 效益值
     '''
-
-    # 翻转
-    board_fp = np.fliplr(board)
-    # 各个方向的向量
-    board_vec = [i for i in board] + [i for i in board.T] \
-        + [board.diagonal(i) for i in range(-board.shape[0]+5, board.shape[1]-4)] \
-        + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
-    # 过滤棋子少的向量
-    board_vec = [vec for vec in board_vec if np.sum(vec!=0) > 1]
-
     # 检查是否到达终止条件
     if depth==0 or if_game_over(board, turn, board_vec):
         return None, None, evaluate(board, turn, board_vec)
     
     # 获取可行步列表
-    childList = getNextSteps(board, turn, valid_board)
+    childList = getNextSteps(board, turn, valid_board, board_vec)
 
     best_row, best_col = 0, 0
 
@@ -86,7 +79,7 @@ def alpha_beta(board, valid_board, turn, alpha, beta, depth):
                 for j in range(max(0, col-1), min(board.shape[1], col+2)):
                     if board[i, j] == 0:
                         valid_board[i, j] += 1
-            _, _, next_beta = alpha_beta(board, valid_board, -turn, alpha, beta, depth-1)
+            _, _, next_beta = alpha_beta(board, valid_board, -turn, alpha, beta, depth-1, board_vec)
             for i in range(max(0, row-1), min(board.shape[0], row+2)):
                 for j in range(max(0, col-1), min(board.shape[1], col+2)):
                     if board[i, j] == 0:
@@ -111,7 +104,7 @@ def alpha_beta(board, valid_board, turn, alpha, beta, depth):
                 for j in range(max(0, col-1), min(board.shape[1], col+2)):
                     if board[i, j] == 0:
                         valid_board[i, j] += 1
-            _, _, next_alpha = alpha_beta(board, valid_board, -turn, alpha, beta, depth-1)
+            _, _, next_alpha = alpha_beta(board, valid_board, -turn, alpha, beta, depth-1, board_vec)
             for i in range(max(0, row-1), min(board.shape[0], row+2)):
                 for j in range(max(0, col-1), min(board.shape[1], col+2)):
                     if board[i, j] == 0:
@@ -128,13 +121,14 @@ def alpha_beta(board, valid_board, turn, alpha, beta, depth):
         return best_row, best_col, beta
 
 
-def getNextSteps(board, turn, valid_board):
+def getNextSteps(board, turn, valid_board, board_vec):
     '''
         获取可行的下一步列表
         参数：
             board: numpy.array棋盘，0为空格，-1为AI棋子，+1为玩家棋子
             turn: 极大(1) 或 极小(-1)
             valid_board: 邻居统计
+            board_vec: 各个方向的向量
         返回值：
             next_steps: 下一步列表
     '''
@@ -148,28 +142,29 @@ def getNextSteps(board, turn, valid_board):
                 next_steps.append((i, j))
 
     # 根据评分进行排序
-    next_steps.sort(key=lambda x: getPointScore(board, x[0], x[1], turn), reverse=True)
+    next_steps.sort(key=lambda x: getPointScore(board, x[0], x[1], turn, board_vec), reverse=True)
 
     return next_steps[:LIMITED_AMOUNT]
 
 
-def getPointScore(board, row, col, turn):
+def getPointScore(board, row, col, turn, board_vec):
     '''
         计算下一步的分数
         参数：
             board: numpy.array棋盘，0为空格，-1为AI棋子，+1为玩家棋子
             row, col: 下一步
             turn: 极大(1) 或 极小(-1)
+            board_vec: 各个方向的向量
         返回值：
             score: 下一步之后的分数
     '''
     board[row, col] = turn
-    score = evaluate(board, turn)
+    score = evaluate(board, turn, board_vec)
     board[row, col] = 0
     return turn * score
 
 
-def evaluate(board, turn, board_vec=None):
+def evaluate(board, turn, board_vec):
     '''
         评价函数，得出当前分数
         参数：
@@ -183,16 +178,8 @@ def evaluate(board, turn, board_vec=None):
     max_score = 0
     min_score = 0
 
-    if board_vec == None:
-        # 翻转
-        board_fp = np.fliplr(board)
-        # 各个方向的向量
-        board_vec = [i for i in board] + [i for i in board.T] \
-            + [board.diagonal(i) for i in range(-board.shape[0]+5, board.shape[1]-4)] \
-            + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
-
-        # 过滤棋子少的向量
-        board_vec = [vec for vec in board_vec if np.sum(vec!=0) > 1]
+    # 各个方向的向量，过滤棋子少的向量
+    board_vec = [vec for vec in get_board_vec(board) if np.sum(vec!=0) > 1]
 
     # 遍历各种棋型
     for model, model_score in score_dict:
@@ -273,3 +260,21 @@ def if_game_over(board, turn, board_vec):
             return True
 
     return False
+
+
+def get_board_vec(board):
+    '''
+        计算各方向的向量
+        参数：
+            board: numpy.array棋盘，0为空格，-1为AI棋子，+1为玩家棋子
+        返回值：
+            board_vec: 各方向的向量列表
+    '''
+    # 翻转
+    board_fp = np.fliplr(board)
+    # 各个方向的向量
+    board_vec = [i for i in board] + [i for i in board.T] \
+        + [board.diagonal(i) for i in range(-board.shape[0]+5, board.shape[1]-4)] \
+        + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
+    
+    return board_vec

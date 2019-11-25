@@ -97,7 +97,7 @@ class Gobang(object):
         self.CELL_SIZE = self.BOARD_LEN // self.board_size
         self.BACKGROUND_COLOR = pygame.Color('peru')
         self.LINE_COLOR = pygame.Color('black')
-        self.MAX_DEPTH = 3
+        self.MAX_DEPTH = 4
 
 
         # 确定棋盘四条边的位置
@@ -141,6 +141,9 @@ class Gobang(object):
                             max(0, j-1):min(self.board_size, j+2)]!=0)>0:
                         valid_board[i, j] += 1
 
+        # 获取各方向的向量
+        board_vec = get_board_vec(self.board)
+
         game_over = False
         print("#---------------------- Game Start ----------------------#")
         while not game_over:
@@ -151,7 +154,8 @@ class Gobang(object):
                     # 棋盘为空时
                     row, col = self.board_size // 2, self.board_size // 2
                 else:
-                    row, col, _ = alpha_beta(self.board, valid_board, turn, -np.inf, np.inf, self.MAX_DEPTH)
+                    row, col, _ = alpha_beta(self.board, valid_board, turn, -np.inf, np.inf, \
+                        self.MAX_DEPTH, board_vec)
                 self.board[row, col] = turn
 
                 # 更新邻居统计
@@ -163,7 +167,7 @@ class Gobang(object):
 
                 turn = -turn
                 # 输出记录
-                score = evaluate(self.board, turn)
+                score = evaluate(self.board, turn, board_vec)
                 print('AI turn: {}, score: {}, time cost: {}'.format((row, col), \
                     score, time.time()-cur_time))
             else:
@@ -186,7 +190,7 @@ class Gobang(object):
                             # 转换角色
                             turn = -turn
                             # 输出记录
-                            score = evaluate(self.board, turn)
+                            score = evaluate(self.board, turn, board_vec)
                             print('Player turn: {}, score: {}'.format((row, col), score))
                             
                             # 更新邻居统计
