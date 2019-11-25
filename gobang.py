@@ -97,7 +97,7 @@ class Gobang(object):
         self.CELL_SIZE = self.BOARD_LEN // self.board_size
         self.BACKGROUND_COLOR = pygame.Color('peru')
         self.LINE_COLOR = pygame.Color('black')
-        self.MAX_DEPTH = 4
+        self.MAX_DEPTH = 3
 
 
         # 确定棋盘四条边的位置

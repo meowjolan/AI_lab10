@@ -57,10 +57,20 @@ def alpha_beta(board, valid_board, turn, alpha, beta, depth):
             (best_row, best_col): 已知最好的下一步旗
             _: 效益值
     '''
-    # 检查是否到达终止条件
-    if depth==0 or if_game_over(board, turn):
-        return None, None, evaluate(board, turn)
 
+    # 翻转
+    board_fp = np.fliplr(board)
+    # 各个方向的向量
+    board_vec = [i for i in board] + [i for i in board.T] \
+        + [board.diagonal(i) for i in range(-board.shape[0]+5, board.shape[1]-4)] \
+        + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
+    # 过滤棋子少的向量
+    board_vec = [vec for vec in board_vec if np.sum(vec!=0) > 1]
+
+    # 检查是否到达终止条件
+    if depth==0 or if_game_over(board, turn, board_vec):
+        return None, None, evaluate(board, turn, board_vec)
+    
     # 获取可行步列表
     childList = getNextSteps(board, turn, valid_board)
 
@@ -159,12 +169,13 @@ def getPointScore(board, row, col, turn):
     return turn * score
 
 
-def evaluate(board, turn):
+def evaluate(board, turn, board_vec=None):
     '''
         评价函数，得出当前分数
         参数：
             board: numpy.array棋盘，0为空格，-1为AI棋子，+1为玩家棋子
             turn: 执棋方
+            board_vec: 各个方向的向量
         返回值：
             score: 当前分数
     '''
@@ -172,12 +183,16 @@ def evaluate(board, turn):
     max_score = 0
     min_score = 0
 
-    # 翻转
-    board_fp = np.fliplr(board)
-    # 各个方向的向量
-    board_vec = [i for i in board] + [i for i in board.T] \
-        + [board.diagonal(i) for i in range(-board.shape[0]+5, board.shape[1]-4)] \
-        + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
+    if board_vec == None:
+        # 翻转
+        board_fp = np.fliplr(board)
+        # 各个方向的向量
+        board_vec = [i for i in board] + [i for i in board.T] \
+            + [board.diagonal(i) for i in range(-board.shape[0]+5, board.shape[1]-4)] \
+            + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
+
+        # 过滤棋子少的向量
+        board_vec = [vec for vec in board_vec if np.sum(vec!=0) > 1]
 
     # 遍历各种棋型
     for model, model_score in score_dict:
@@ -236,12 +251,13 @@ def conv2d(a, b):
     return pos, neg
 
 
-def if_game_over(board, turn):
+def if_game_over(board, turn, board_vec):
     '''
         判断游戏是否已经结束
         参数：
             board: numpy.array棋盘，0为空格，-1为AI棋子，+1为玩家棋子
             turn: 执棋方
+            board_vec: 各个方向的向量
         返回值：
             布尔值
     '''
@@ -249,18 +265,11 @@ def if_game_over(board, turn):
     if np.sum(board==0) == 0:
         return True
 
-    # 翻转
-    board_fp = np.fliplr(board)
-    # 各个方向的向量
-    board_vec = [i for i in board] + [i for i in board.T] \
-        + [board.diagonal(i) for i in range(-board.shape[0]+5, board.shape[1]-4)] \
-        + [board_fp.diagonal(i) for i in range(-board_fp.shape[0]+5, board_fp.shape[1]-4)]
-
     model = np.array([1, 1, 1, 1, 1]) * turn / 5
 
     # 遍历每个向量
     for vec in board_vec:
-        if np.sum(np.convolve(vec, model, mode='valid')==1) > 0:
+        if np.sum(abs(np.convolve(vec, model, mode='valid'))==1) > 0:
             return True
 
     return False
