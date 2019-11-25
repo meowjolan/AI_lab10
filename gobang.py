@@ -8,6 +8,8 @@
 
 # 导入相关模块
 import numpy as np
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 import time
 from gobang_ai import *
