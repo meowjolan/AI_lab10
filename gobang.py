@@ -97,7 +97,7 @@ class Gobang(object):
         self.CELL_SIZE = self.BOARD_LEN // self.board_size
         self.BACKGROUND_COLOR = pygame.Color('peru')
         self.LINE_COLOR = pygame.Color('black')
-        self.MAX_DEPTH = 3
+        self.MAX_DEPTH = 4
 
 
         # 确定棋盘四条边的位置
@@ -131,6 +131,16 @@ class Gobang(object):
             self.AI_COLOR = pygame.Color('black')
 
         self.add_init_coins(turn)
+
+        # 初始化邻居统计
+        valid_board = np.zeros_like(self.board)
+        for i in range(0, self.board_size):
+            for j in range(0, self.board_size):
+                    if self.board[i, j] == 0 \
+                        and np.sum(self.board[max(0, i-1):min(self.board_size, i+2), \
+                            max(0, j-1):min(self.board_size, j+2)]!=0)>0:
+                        valid_board[i, j] += 1
+
         game_over = False
         print("#---------------------- Game Start ----------------------#")
         while not game_over:
@@ -141,8 +151,13 @@ class Gobang(object):
                     # 棋盘为空时
                     row, col = self.board_size // 2, self.board_size // 2
                 else:
-                    row, col, _ = alpha_beta(self.board, turn, -np.inf, np.inf, self.MAX_DEPTH)
+                    row, col, _ = alpha_beta(self.board, valid_board, turn, -np.inf, np.inf, self.MAX_DEPTH)
                 self.board[row, col] = turn
+                # 更新邻居统计
+                for i in range(max(0, row-1), min(self.board_size, row+2)):
+                    for j in range(max(0, col-1), min(self.board_size, col+2)):
+                        if self.board[i, j] == 0:
+                            valid_board[i, j] += 1
                 turn = -turn
                 # 输出记录
                 score = evaluate(self.board, turn)
@@ -170,6 +185,11 @@ class Gobang(object):
                             # 输出记录
                             score = evaluate(self.board, turn)
                             print('Player turn: {}, score: {}'.format((row, col), score))
+                            # 更新邻居统计
+                            for i in range(max(0, row-1), min(self.board_size, row+2)):
+                                for j in range(max(0, col-1), min(self.board_size, col+2)):
+                                    if self.board[i, j] == 0:
+                                        valid_board[i, j] += 1
 
             # 绘制棋盘
             self.draw_board()

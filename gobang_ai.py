@@ -8,6 +8,7 @@
 
 # 导入相关模块
 import numpy as np
+import time
 
 # 常量定义
 # 评分棋型设计
@@ -31,11 +32,12 @@ score_dict = [
 ]
 
 
-def alpha_beta(board, turn, alpha, beta, depth):
+def alpha_beta(board, valid_board, turn, alpha, beta, depth):
     '''
         alpha-beta剪枝搜索算法
         参数：
             board: numpy.array棋盘，0为空格，-1为AI棋子，+1为玩家棋子
+            valid_board: 可行步，>0表示可行
             turn: 极大(1) 或 极小(-1)
             alpha, beta: 极大极小值
             depth: 限制深度
@@ -48,7 +50,7 @@ def alpha_beta(board, turn, alpha, beta, depth):
         return None, None, evaluate(board, turn)
 
     # 获取可行步列表
-    childList = getNextSteps(board, turn)
+    childList = getNextSteps(board, turn, valid_board)
 
     best_row, best_col = 0, 0
 
@@ -57,7 +59,15 @@ def alpha_beta(board, turn, alpha, beta, depth):
         for row, col in childList:
             # 递归调用
             board[row, col] = turn
-            _, _, next_beta = alpha_beta(board, -turn, alpha, beta, depth-1)
+            for i in range(max(0, row-1), min(board.shape[0], row+2)):
+                for j in range(max(0, col-1), min(board.shape[1], col+2)):
+                    if board[i, j] == 0:
+                        valid_board[i, j] += 1
+            _, _, next_beta = alpha_beta(board, valid_board, -turn, alpha, beta, depth-1)
+            for i in range(max(0, row-1), min(board.shape[0], row+2)):
+                for j in range(max(0, col-1), min(board.shape[1], col+2)):
+                    if board[i, j] == 0:
+                        valid_board[i, j] -= 1
             board[row, col] = 0
             # 更新alpha
             if alpha < next_beta:
@@ -72,7 +82,15 @@ def alpha_beta(board, turn, alpha, beta, depth):
         for row, col in childList:
             # 递归调用
             board[row, col] = turn
-            _, _, next_alpha = alpha_beta(board, -turn, alpha, beta, depth-1)
+            for i in range(max(0, row-1), min(board.shape[0], row+2)):
+                for j in range(max(0, col-1), min(board.shape[1], col+2)):
+                    if board[i, j] == 0:
+                        valid_board[i, j] += 1
+            _, _, next_alpha = alpha_beta(board, valid_board, -turn, alpha, beta, depth-1)
+            for i in range(max(0, row-1), min(board.shape[0], row+2)):
+                for j in range(max(0, col-1), min(board.shape[1], col+2)):
+                    if board[i, j] == 0:
+                        valid_board[i, j] -= 1
             board[row, col] = 0
             # 更新beta
             if beta > next_alpha:
@@ -84,12 +102,13 @@ def alpha_beta(board, turn, alpha, beta, depth):
         return best_row, best_col, beta
 
 
-def getNextSteps(board, turn):
+def getNextSteps(board, turn, valid_board):
     '''
         获取可行的下一步列表
         参数：
             board: numpy.array棋盘，0为空格，-1为AI棋子，+1为玩家棋子
             turn: 极大(1) 或 极小(-1)
+            valid_board: 邻居统计
         返回值：
             next_steps: 下一步列表
     '''
@@ -99,9 +118,7 @@ def getNextSteps(board, turn):
     next_steps = []
     for i in range(board.shape[0]):
         for j in range(board.shape[1]):
-            if board[i, j] == 0 and \
-                np.sum(board[max(0, i-1):min(board.shape[0], i+2), \
-                    max(0, j-1):min(board.shape[1], j+2)]!=0) > 0:
+            if valid_board[i, j] > 0:
                 next_steps.append((i, j))
 
     # 根据评分进行排序
@@ -170,7 +187,7 @@ def evaluate(board, turn):
 
     # 最终得分
     score = max_score - min_score
-
+    
     return score
 
 
